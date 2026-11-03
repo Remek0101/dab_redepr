@@ -87,8 +87,10 @@ A target = one environment. Each has its own workspace `host`, variable values a
 | `mode` | `development` | `production` | `production` |
 | Workspace | `adb-7405617289997499…` | `adb-7405616311562225…` | `adb-7405604627029762…` |
 | Deploy path | `/Workspace/Users/<you>/.bundle/dab_redepr/dev` (auto) | `/Workspace/Shared/.bundle/dab_redepr/test` (explicit `root_path`) | `/Workspace/Shared/.bundle/dab_redepr/prod` |
-| `permissions` | – | `remigiusz.be@gmail.com` CAN_MANAGE | same |
+| `permissions` | – | service principal `049c25aa-…` CAN_MANAGE | `remigiusz.be@gmail.com` CAN_MANAGE |
+| `run_as` | – (deploying user) | service principal `049c25aa-…` | – (deploying user) |
 | `presets` | `artifacts_dynamic_version: true` | – | – |
+| CLI profile | `DEFAULT` (PAT) | `TEST` (SP + client secret) | `PROD` (PAT) |
 
 #### What `mode: development` does
 * Prefixes deployed resource names with `[dev <your_user_name>]`, so personal copies never collide with
@@ -298,6 +300,55 @@ databricks bundle destroy  -t dev            # remove deployed resources
 
 Prerequisite in every workspace/catalog: schemas `00_landing` (with volume `source_file` holding the CSVs),
 `01_bronze`, `02_silver`, `03_gold`, and permission for the deploying identity to create tables there.
+
+---
+
+## 5a. Service principal deployment (test target) and troubleshooting
+
+The `test` target deploys **as** an Azure service principal (SP) and the jobs/pipeline `run_as` it:
+
+```yaml
+test:
+  permissions:
+    - service_principal_name: 049c25aa-7326-42cf-bc1f-218ec9031ddd
+      level: CAN_MANAGE
+  run_as:
+    service_principal_name: 049c25aa-7326-42cf-bc1f-218ec9031ddd
+```
+
+The CLI authenticates via the `[TEST]` profile in `~/.databrickscfg`:
+
+```ini
+[TEST]
+host                = https://adb-7405616311562225.5.azuredatabricks.net/
+azure_client_id     = <SP application (client) id>
+azure_tenant_id     = <tenant id>
+azure_client_secret = <secret VALUE>
+```
+
+Check auth with `databricks current-user me --profile TEST` (should show the SP) before deploying.
+`bundle validate -t test` shows `User: 049c25aa-…` when it works.
+
+### Problems hit and their fixes
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `validate -t test`: `cannot configure default credentials`; with `--debug`: `AADSTS7000215: Invalid client secret provided` | `azure_client_secret` in `[TEST]` was the secret **ID**, expired, or for another app | Create a new secret in Entra ID → App registrations → Certificates & secrets and paste the **Value** (shown only once) |
+| Warning: bundle root path `/Workspace/Shared/...` is writable by all workspace users | `root_path` under `/Workspace/Shared` | Harmless. Silence with a `group_name: users` CAN_MANAGE permission, or use a restricted `root_path` |
+| Deploy: `403 PERMISSION_DENIED ... User 049c25aa-… does not have View permissions on pipeline <id>`, then `cannot plan ... permissions` | Resources were first deployed as a *different identity* (me), then the target switched to `run_as` the SP. The SP can't see those old resources (and the follow-on "plan permissions" error is just a consequence) | Delete the old pipeline/job, **or** grant the SP CAN_MANAGE on them |
+| Same 403 even though the pipeline was already deleted in the workspace | **Stale bundle state** still lists the deleted resource id: locally in `.databricks/bundle/<target>/resources.json` and remotely in `<root_path>/state/` | Delete local `.databricks/` and the remote folder `/Workspace/Shared/.bundle/dab_redepr/<target>` (in Git Bash prefix with `MSYS_NO_PATHCONV=1` or the path gets rewritten), then redeploy. `bundle destroy` may hit the same 403 |
+| Pipeline run: `Table citibike_test.default.bronze_jc_citibike_dlt is already managed by pipeline <old id>` (`_LEGACY_ERROR_TEMP_40_TABLE_ALREADY_MANAGED_BY_OTHER_PIPELINE`) | Deleting/recreating a pipeline leaves its tables owned by the **old pipeline id**; a table can only belong to one pipeline | `DROP TABLE IF EXISTS <catalog>.default.<table>;` for each DLT table (bronze/silver/gold `_dlt`), as the table owner or a user with MANAGE, then re-run the pipeline. Applies to the `_dlt` tables in `schema: default` |
+
+### Rules of thumb
+
+* **Don't switch the deploying/`run_as` identity on an existing deployment** without cleaning up (or granting
+  the new identity access to) the resources the old identity created.
+* **If you delete bundle-managed resources by hand, also clear the bundle state**, otherwise the next deploy
+  plans against resources that no longer exist.
+* **Deleting a DLT pipeline does not reliably drop its tables** – drop them before recreating the pipeline.
+* The SP also needs: access to the target workspace, `USE CATALOG`/`USE SCHEMA`/`CREATE TABLE` on the catalog
+  (`citibike_test`), `READ VOLUME` on `00_landing.source_file`, and permission to create the clusters.
+* If dev runs show a `citibike_test` table, check that dev really resolves `catalog` to `citibike_dev`.
 
 ---
 
