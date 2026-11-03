@@ -74,8 +74,10 @@ targets:
       cluster: d8s_v3_sn
       dev_flag: false
     permissions:
-      - user_name: remigiusz.be@gmail.com
+      - service_principal_name: 049c25aa-7326-42cf-bc1f-218ec9031ddd
         level: CAN_MANAGE
+    run_as:
+      service_principal_name: 049c25aa-7326-42cf-bc1f-218ec9031ddd
 
   # ---------------------------------------------------------------------------
   # PROD - production environment
