@@ -71,7 +71,7 @@ targets:
       root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
     variables:
       catalog: citibike_test
-      cluster: d8s_v3_sn
+      cluster: d4s_v3_sn
       dev_flag: false
     permissions:
       - service_principal_name: 049c25aa-7326-42cf-bc1f-218ec9031ddd
@@ -93,7 +93,7 @@ targets:
       root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
     variables:
       catalog: citibike_prod
-      cluster: d8s_v3_sn
+      cluster: d4s_v3_sn
       dev_flag: false
     permissions:
       - service_principal_name: 561e64a8-e93f-4988-b993-0a8b417cd771

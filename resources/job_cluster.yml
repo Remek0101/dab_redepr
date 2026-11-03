@@ -21,8 +21,8 @@ variables:
       runtime_engine: STANDARD
       num_workers: 0
 
-  d8s_v3_sn:
-    description: Single-node cluster, Standard_D8s_v3 (8 cores, 32 GB)
+  d4s_v3_sn:
+    description: Single-node cluster, Standard_D4s_v3 (4 cores, 16 GB)
     type: complex
     default:
       cluster_name: ""
@@ -34,8 +34,8 @@ variables:
         first_on_demand: 1
         availability: SPOT_WITH_FALLBACK_AZURE
         spot_bid_max_price: -1
-      node_type_id: Standard_D8s_v3
-      driver_node_type_id: Standard_D8s_v3
+      node_type_id: Standard_D4s_v3
+      driver_node_type_id: Standard_D4s_v3
       custom_tags:
         ResourceClass: SingleNode
       enable_elastic_disk: true
