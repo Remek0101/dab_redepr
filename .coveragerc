@@ -1,0 +1,4 @@
+[run]
+omit =
+    # files to excclude from reprots
+    src\__init__.py

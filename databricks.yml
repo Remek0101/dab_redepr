@@ -1,0 +1,98 @@
+# This is a Declarative Automation Bundle definition for dab_redepr.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+bundle:
+  name: dab_redepr
+  uuid: 1fab70aa-d6a5-4fc3-be10-eba5e37572e4
+
+include:
+  - resources/*.yml
+
+# ---------------------------------------------------------------------------
+# ARTIFACTS
+# The dab_redepr wheel is built automatically on every 'databricks bundle deploy'.
+# The CLI builds it into ./dist, uploads it to the bundle's artifacts folder in
+# the workspace, and rewrites the 'libraries' path in the job to point there.
+# dist/ is in .gitignore, so the wheel is never committed or synced as a file.
+# ---------------------------------------------------------------------------
+artifacts:
+  dab_redepr:
+    type: whl
+    path: .
+    build: python setup.py bdist_wheel
+
+# Variable declarations. Values are assigned per target below.
+# Cluster definitions (ds3_v2_sn, d8s_v3_sn) live in resources/job_clusters.yml.
+variables:
+  catalog:
+    description: The catalog to use
+    default: citibike_dev
+
+  dev_flag:
+    description: Flag indicating development mode
+    default: true
+
+  cluster:
+    description: Job cluster used for the silver and gold tasks
+    default: ds3_v2_sn
+
+targets:
+  # ---------------------------------------------------------------------------
+  # DEV - personal development copy per user
+  # - Deployed resources get prefixed with '[dev my_user_name]'
+  # - Job schedules and triggers are paused by default
+  # - Deploys to /Workspace/Users/<you>/.bundle/... automatically
+  # - Uses the smaller cluster for all tasks to save cost
+  # - artifacts_dynamic_version gives each deployed wheel a unique version,
+  #   so the cluster never reuses a cached old build
+  # See https://docs.databricks.com/dev-tools/bundles/deployment-modes.html
+  # ---------------------------------------------------------------------------
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://adb-7405617289997499.19.azuredatabricks.net
+    variables:
+      catalog: citibike_dev
+      cluster: ds3_v2_sn
+      dev_flag: true
+    presets:
+      artifacts_dynamic_version: true
+
+  # ---------------------------------------------------------------------------
+  # TEST - shared test environment
+  # 'mode: production' deploys resources with real names and active schedules.
+  # A single shared copy lives under /Workspace/Shared.
+  # Silver and gold run on the larger cluster.
+  # ---------------------------------------------------------------------------
+  test:
+    mode: production
+    workspace:
+      host: https://adb-7405616311562225.5.azuredatabricks.net
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: citibike_test
+      cluster: d8s_v3_sn
+      dev_flag: false
+    permissions:
+      - user_name: remigiusz.be@gmail.com
+        level: CAN_MANAGE
+
+  # ---------------------------------------------------------------------------
+  # PROD - production environment
+  # 'mode: production' adds safety checks (e.g. Git branch validation,
+  # no user-folder root_path).
+  # A single shared copy lives under /Workspace/Shared.
+  # Silver and gold run on the larger cluster.
+  # ---------------------------------------------------------------------------
+  prod:
+    mode: production
+    workspace:
+      host: https://adb-7405604627029762.2.azuredatabricks.net
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: citibike_prod
+      cluster: d8s_v3_sn
+      dev_flag: false
+    permissions:
+      - user_name: remigiusz.be@gmail.com
+        level: CAN_MANAGE

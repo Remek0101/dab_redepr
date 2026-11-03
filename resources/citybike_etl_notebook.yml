@@ -1,0 +1,50 @@
+
+resources:
+  jobs:
+    citibike_etl_notebook:
+      name: citibike_etl_notebook
+      tasks:
+        - task_key: 01_bronze_citibike
+          notebook_task:
+            notebook_path: ../citibike_etl/notebooks/01_bronze_citibike.ipynb
+            base_parameters:
+              pipeline_id: "{{job.id}}"
+              run_id: "{{job.run_id}}"
+              task_id: "{{task.run_id}}"
+              processed_at: "{{job.start_time.iso_datetime}}"
+              catalog: "${var.catalog}"  # this refers to the databricks yml variable 'catalog', we will override it to test/prod on deployment
+          job_cluster_key: ds3_v2_sn
+        - task_key: 02_silver_citibike
+          depends_on:
+            - task_key: 01_bronze_citibike
+          notebook_task:
+            notebook_path: ../citibike_etl/notebooks/02_silver_citibike.ipynb
+            base_parameters:
+              pipeline_id: "{{job.id}}"
+              run_id: "{{job.run_id}}"
+              task_id: "{{task.run_id}}"
+              processed_at: "{{job.start_time.iso_datetime}}"
+              catalog: "${var.catalog}"   # this refers to the databricks yml variable 'catalog', we will override it to test/prod on deployment
+          job_cluster_key: ${var.cluster}   # ds3_v2_sn in dev, d8s_v3_sn in test/prod
+          libraries: 
+            - whl: ../dist/*.whl  # path to the built wheel file for the dab_redepr package
+        - task_key: 03_gold_citibike
+          depends_on:
+            - task_key: 02_silver_citibike
+          notebook_task:
+            notebook_path: ../citibike_etl/notebooks/03_gold_citibike.ipynb
+            base_parameters:
+              catalog: "${var.catalog}"  # this refers to the databricks yml variable 'catalog', we will override it to test/prod on deployment
+          job_cluster_key: ${var.cluster}   # ds3_v2_sn in dev, d8s_v3_sn in test/prod
+
+      job_clusters:
+        - job_cluster_key: ds3_v2_sn
+          new_cluster: ${var.ds3_v2_sn}
+        - job_cluster_key: d8s_v3_sn
+          new_cluster: ${var.d8s_v3_sn}
+
+      queue:
+        enabled: true
+
+
+
