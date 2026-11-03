@@ -96,5 +96,7 @@ targets:
       cluster: d8s_v3_sn
       dev_flag: false
     permissions:
-      - user_name: remigiusz.be@gmail.com
+      - service_principal_name: 561e64a8-e93f-4988-b993-0a8b417cd771
         level: CAN_MANAGE
+    run_as:
+      service_principal_name: 561e64a8-e93f-4988-b993-0a8b417cd771
