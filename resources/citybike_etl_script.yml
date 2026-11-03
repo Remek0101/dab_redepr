@@ -41,8 +41,8 @@ resources:
       job_clusters:
         - job_cluster_key: ds3_v2_sn
           new_cluster: ${var.ds3_v2_sn}
-        - job_cluster_key: d8s_v3_sn
-          new_cluster: ${var.d8s_v3_sn}
+        - job_cluster_key: d4s_v3_sn
+          new_cluster: ${var.d4s_v3_sn}
 
       queue:
         enabled: true
